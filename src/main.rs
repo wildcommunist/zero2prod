@@ -1,4 +1,4 @@
-// Stopped at 3.7 (page 59)
+// Stopped at 3.7 (page 71)
 
 use std::net::TcpListener;
 use zero2prod::run;
