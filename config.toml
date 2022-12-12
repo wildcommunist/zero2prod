@@ -1,4 +1,4 @@
-application_port = 8001
+application_port = 8002
 [database]
 username = "postgres"
 password = "password"
