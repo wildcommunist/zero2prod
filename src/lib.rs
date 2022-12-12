@@ -4,6 +4,6 @@ pub mod startup;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
-    email: String,
-    name: String,
+    pub email: String,
+    pub name: String,
 }

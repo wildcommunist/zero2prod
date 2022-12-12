@@ -12,3 +12,20 @@ pub struct DatabaseSettings {
     pub host: String,
     pub database: String,
 }
+
+pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+    let settings = config::Config::builder()
+        .add_source(config::File::new("config.toml", config::FileFormat::Toml))
+        .build()?;
+
+    settings.try_deserialize::<Settings>()
+}
+
+impl DatabaseSettings {
+    pub fn connection_string(&self) -> String {
+        format!(
+            "postgres://{}:{}@{}:{}/{}",
+            self.username, self.password, self.host, self.port, self.database
+        )
+    }
+}
