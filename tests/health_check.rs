@@ -42,7 +42,7 @@ async fn health_check_works() {
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let (address, client, _settings) = spawn_app();
     let conn_string = _settings.database.connection_string();
-    let connection = PgConnection::connect(&conn_string)
+    let mut connection = PgConnection::connect(&conn_string)
         .await
         .expect("Failed to connect to database");
 
@@ -58,6 +58,15 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .expect("Failed to execute request.");
     // Assert
     assert_eq!(200, response.status().as_u16());
+
+    // Check if we actually saved the data
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+        .fetch_one(&mut connection)
+        .await
+        .expect("Failed to fetch saved subscription.");
+
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]
