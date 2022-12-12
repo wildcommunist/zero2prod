@@ -4,4 +4,4 @@ username = "postgres"
 password = "password"
 host = "127.0.0.1"
 port = 5432
-database = "newsletter"
+database_name = "newsletter"
