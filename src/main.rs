@@ -1,4 +1,4 @@
-// Stopped at 3.7 (page 113)
+// Stopped at 3.7 (page 124)
 
 use env_logger::Env;
 use sqlx::PgPool;
