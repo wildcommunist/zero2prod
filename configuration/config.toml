@@ -1,7 +1,9 @@
-application_port = 8002
+[application]
+port = 8002
 [database]
 username = "postgres"
 password = "password"
 host = "127.0.0.1"
 port = 5432
 database_name = "newsletter"
+pool_timeout_seconds = 2
