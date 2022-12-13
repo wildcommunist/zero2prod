@@ -1,6 +1,5 @@
 // Stopped at 3.7 (page 178)
 
-use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 use zero2prod::configuration::get_configuration;
@@ -20,7 +19,6 @@ async fn main() -> std::io::Result<()> {
         .acquire_timeout(std::time::Duration::from_secs(
             configuration.database.pool_timeout_seconds,
         ))
-        .connect_lazy(&configuration.database.connection_string().expose_secret())
-        .expect("Failed to connect to database");
+        .connect_lazy_with(configuration.database.with_db());
     run(TcpListener::bind(address)?, connection_pool)?.await
 }
