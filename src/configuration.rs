@@ -33,13 +33,13 @@ impl TryFrom<String> for Environment {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     // When setting via env variables, they are strings
@@ -47,7 +47,7 @@ pub struct ApplicationSettings {
     pub host: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
@@ -60,7 +60,7 @@ pub struct DatabaseSettings {
     pub require_ssl: bool,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
@@ -68,7 +68,7 @@ pub struct EmailClientSettings {
     pub timeout_milliseconds: u64,
 }
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+pub fn get_settings() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine current directory");
     let configuration_directory = base_path.join("configuration");
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
