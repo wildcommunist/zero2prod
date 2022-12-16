@@ -45,6 +45,7 @@ pub struct ApplicationSettings {
     // When setting via env variables, they are strings
     pub port: u16,
     pub host: String,
+    pub base_url: String,
 }
 
 #[derive(serde::Deserialize, Clone)]

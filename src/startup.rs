@@ -1,6 +1,6 @@
 use crate::configuration::{DatabaseSettings, Settings};
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe};
+use crate::routes::{confirm, health_check, subscribe};
 use actix_web::dev::Server;
 use actix_web::web::Data;
 use actix_web::{web, App, HttpServer};
@@ -39,6 +39,7 @@ impl Application {
             listener,
             get_connection_pool(&configuration.database),
             email_client,
+            configuration.application.base_url,
         )?;
         Ok(Self { port, server })
     }
@@ -59,11 +60,15 @@ pub fn get_connection_pool(settings: &DatabaseSettings) -> PgPool {
         .connect_lazy_with(settings.with_db())
 }
 
+pub struct ApplicationBaseUrl(pub String);
+
 pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
+    let base_url = Data::new(ApplicationBaseUrl(base_url));
     /*
     // Wrap the connection in a smart pointer. se page 92 of the guide that explains really well
     // why we need to wrap it. In short: PgConnection is non cloneable bu App::new() creates a new
@@ -77,8 +82,10 @@ pub fn run(
             .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
+            .route("/subscriptions/confirm", web::get().to(confirm))
             .app_data(connection.clone())
             .app_data(email_client.clone())
+            .app_data(base_url.clone())
     })
     .listen(listener)?
     .run();
