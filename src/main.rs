@@ -1,4 +1,4 @@
-// Stopped at 3.7 (page 327)
+// Stopped at 3.7 (page 342)
 
 use zero2prod::configuration::get_settings;
 use zero2prod::startup::Application;
