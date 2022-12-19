@@ -128,7 +128,7 @@ pub async fn store_token(
     tx: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES ($1, $2)"#,
@@ -136,11 +136,7 @@ pub async fn store_token(
         subscriber_id,
     )
     .execute(tx)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        StoreTokenError(e)
-    })?;
+    .await?;
     Ok(())
 }
 
@@ -202,10 +198,6 @@ pub async fn insert_subscriber(
         Utc::now()
     )
     .execute(tx)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(subscriber_id)
 }
