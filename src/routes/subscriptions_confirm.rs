@@ -1,5 +1,9 @@
-use actix_web::{web, HttpResponse};
+use crate::routes::error_chain_fmt;
+use actix_web::http::StatusCode;
+use actix_web::{web, HttpResponse, ResponseError};
+use anyhow::Context;
 use sqlx::PgPool;
+use std::fmt::Formatter;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -7,23 +11,43 @@ pub struct Parameters {
     subscription_token: String,
 }
 
-#[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters, pool))]
-pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
-    let subscriber_id =
-        match get_subscriber_id_from_token(&pool, &parameters.subscription_token).await {
-            Ok(id) => id,
-            Err(_) => return HttpResponse::InternalServerError().finish(),
-        };
+#[derive(thiserror::Error)]
+pub enum ConfirmError {
+    #[error("There is no subscriber associated with this token")]
+    InvalidTokenError,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
 
-    match subscriber_id {
-        None => HttpResponse::Unauthorized().finish(),
-        Some(id) => {
-            if confirm_subscriber(&pool, id).await.is_err() {
-                return HttpResponse::InternalServerError().finish();
-            }
-            HttpResponse::Ok().finish()
+impl std::fmt::Debug for ConfirmError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl ResponseError for ConfirmError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            ConfirmError::InvalidTokenError => StatusCode::BAD_REQUEST,
+            ConfirmError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
+}
+
+#[tracing::instrument(name = "Confirm a pending subscriber", skip(parameters, pool))]
+pub async fn confirm(
+    parameters: web::Query<Parameters>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, ConfirmError> {
+    let subscriber_id = get_subscriber_id_from_token(&pool, &parameters.subscription_token)
+        .await
+        .context("Failed to get subscriber ID from token")?
+        .ok_or(ConfirmError::InvalidTokenError)?;
+
+    confirm_subscriber(&pool, subscriber_id)
+        .await
+        .context("Failed to confirm subscriber")?;
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(
@@ -39,11 +63,7 @@ pub async fn get_subscriber_id_from_token(
         subscription_token,
     )
     .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to fetch activation token: {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(result.map(|r| r.subscriber_id))
 }
 
@@ -54,10 +74,6 @@ pub async fn confirm_subscriber(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Err
         id
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("failed to confirm user subscription query: {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(())
 }
