@@ -29,6 +29,7 @@ serde-aux = "3"
 unicode-segmentation = "1.9.0"
 validator = "0.14"
 rand = { version = "0.8", features=["std_rng"] }
+thiserror = "1"
 
 [dependencies.reqwest]
 version = "0.11"
