@@ -39,6 +39,16 @@ pub struct Settings {
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
+
+impl Settings {
+    pub fn current_environment() -> Environment {
+        std::env::var("APP_ENVIRONMENT")
+            .unwrap_or_else(|_| "local".into())
+            .try_into()
+            .expect("Failed to parse APP_ENVIRONMENT.")
+    }
+}
+
 #[derive(serde::Deserialize, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
