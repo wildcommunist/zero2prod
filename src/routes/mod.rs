@@ -8,3 +8,5 @@ pub use home::*;
 pub use newsletters::*;
 pub use subscriptions::*;
 pub use subscriptions_confirm::*;
+mod login;
+pub use login::*;
