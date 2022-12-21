@@ -166,7 +166,7 @@ pub async fn send_confirmation_email(
     let subject = "Please confirm your subscription to my Newsletter";
 
     email_client
-        .send_email(new_subscriber.email, subject, &html_body, &plain_body)
+        .send_email(&new_subscriber.email, subject, &html_body, &plain_body)
         .await
 }
 
