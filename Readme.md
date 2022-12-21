@@ -1,0 +1,1 @@
+### new migration: `sqlx migrate add <create_users_table>`
