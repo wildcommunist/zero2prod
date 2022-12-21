@@ -1,5 +1,6 @@
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use once_cell::sync::Lazy;
-use sha3::Digest;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -41,7 +42,11 @@ impl TestUser {
     }
 
     async fn store(&self, pool: &PgPool) {
-        let password_hash = sha3::Sha3_256::digest(self.password.as_bytes());
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
         sqlx::query!(
             r#"
             INSERT INTO users (user_id, username, password_hash)
@@ -49,7 +54,7 @@ impl TestUser {
             "#,
             self.user_id,
             self.username,
-            &format!("{:x}", password_hash)
+            password_hash
         )
         .execute(pool)
         .await
@@ -144,18 +149,6 @@ pub async fn spawn_app() -> TestApp {
     test_app.test_user.store(&test_app.db_pool).await;
 
     test_app
-}
-
-async fn add_test_user(pool: &PgPool) {
-    sqlx::query!(
-        r#"INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)"#,
-        Uuid::new_v4(),
-        Uuid::new_v4().to_string(),
-        Uuid::new_v4().to_string()
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to execute query to add test user.");
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
