@@ -140,6 +140,17 @@ impl TestApp {
             .await
             .unwrap()
     }
+
+    pub async fn get_admin_dashboard(&self) -> String {
+        self.api_client
+            .get(&format!("{}/admin/dashboard", &self.address))
+            .send()
+            .await
+            .expect("Failed to get admin dashboard page html")
+            .text()
+            .await
+            .unwrap()
+    }
 }
 
 // Launch our application in the background ~somehow~
