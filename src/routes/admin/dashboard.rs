@@ -24,8 +24,8 @@ pub async fn admin_dashboard(
     pool: Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
     // When using Session::get we must specify what type we want to deserialize the session state entry into -
-    let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
-        get_username(user_id, &pool).await.map_err(e500)?
+    let (username, user_id) = if let Some(user_id) = session.get_user_id().map_err(e500)? {
+        (get_username(user_id, &pool).await.map_err(e500)?, user_id)
     } else {
         return Ok(HttpResponse::SeeOther()
             .insert_header((LOCATION, "/login"))
@@ -41,7 +41,7 @@ pub async fn admin_dashboard(
 <title>Admin dashboard</title>
 </head>
 <body>
-<p>Welcome {username}!</p>
+<p>Welcome {username} [{user_id}]!</p>
 </body>
 </html>"#
         )))
