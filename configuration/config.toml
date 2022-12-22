@@ -1,6 +1,7 @@
 [application]
 port = 8002
 base_url = "http://127.0.0.1"
+hmac_secret = "0nuzVbRKHKt6qpeXLYc4omfXWE8LQnqfrcC7EUXmxhop61dKVScECLHugUyeXSpuqOPbN1pJqtpFcW73"
 [database]
 username = "postgres"
 password = "password"
