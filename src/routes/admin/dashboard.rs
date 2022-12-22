@@ -1,5 +1,5 @@
 use crate::session_state::TypedSession;
-use actix_session::Session;
+use crate::utils::e500;
 use actix_web::http::header::ContentType;
 use actix_web::web::Data;
 use actix_web::HttpResponse;
@@ -7,13 +7,6 @@ use anyhow::Context;
 use reqwest::header::LOCATION;
 use sqlx::PgPool;
 use uuid::Uuid;
-
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
-}
 
 //region Structs & implementations
 //endregion
@@ -50,7 +43,7 @@ pub async fn admin_dashboard(
 
 //region Helper functions
 #[tracing::instrument(name = "Get username", skip(pool))]
-async fn get_username(user_id: Uuid, pool: &PgPool) -> Result<String, anyhow::Error> {
+pub async fn get_username(user_id: Uuid, pool: &PgPool) -> Result<String, anyhow::Error> {
     let row = sqlx::query!(
         r#"
         SELECT username

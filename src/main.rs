@@ -1,4 +1,4 @@
-// Stopped page 497
+// Stopped page 524
 
 use zero2prod::configuration::{get_settings, Settings};
 use zero2prod::startup::Application;
