@@ -2,7 +2,7 @@ use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
-use crate::utils::see_other;
+use crate::utils::{e500, see_other};
 use actix_web::http::{header, StatusCode};
 use actix_web::web::ReqData;
 use actix_web::{HttpResponse, ResponseError};
@@ -68,10 +68,10 @@ pub async fn publish_newsletter(
     pool: actix_web::web::Data<PgPool>,
     email_client: actix_web::web::Data<EmailClient>,
     user_id: ReqData<UserId>,
-) -> Result<HttpResponse, PublishError> {
+) -> Result<HttpResponse, actix_web::Error> {
     let user_id = user_id.into_inner();
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
-    let subscribers = get_confirmed_subscribers(&pool).await?;
+    let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
 
     for subscriber in &subscribers {
         match subscriber {
@@ -79,7 +79,8 @@ pub async fn publish_newsletter(
                 email_client
                     .send_email(&sub.email, &body.title, &body.html, &body.plain)
                     .await
-                    .with_context(|| format!("Failed to send newsletter issue to {}", sub.email))?;
+                    .with_context(|| format!("Failed to send newsletter issue to {}", sub.email))
+                    .map_err(e500)?;
             }
             Err(error) => {
                 tracing::warn!(

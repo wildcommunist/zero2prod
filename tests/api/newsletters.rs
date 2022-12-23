@@ -45,10 +45,8 @@ async fn create_confirmed_subscriber(app: &TestApp) {
 }
 
 async fn create_confirmed_subscribers(app: &TestApp, num: u16) {
-    let mut iter = 0;
-    while iter < num {
+    for _ in 0..num {
         create_confirmed_subscriber(app).await;
-        iter += 1;
     }
 }
 
@@ -170,4 +168,43 @@ async fn newsletter_returns_400_for_invalid_data() {
             error_message
         );
     }
+}
+
+#[tokio::test]
+async fn newsletter_creation_is_idempotent() {
+    let app = spawn_app().await;
+    let response = app.with_login().await;
+    assert_is_redirect_to(&response, "/admin/dashboard");
+
+    create_confirmed_subscriber(&app).await;
+
+    Mock::given(path("/email"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    let newsletter_request_body = serde_json::json!({
+        "title":"Newsletter title",
+        "plain":"Newsletter as plain text",
+        "html":"Newsletter as <b>html</b>"
+    });
+
+    let response = app.post_newsletters(&newsletter_request_body).await;
+    assert_is_redirect_to(&response, "/admin/newsletter");
+
+    let page_html = app.get_newsletter_html().await;
+    assert!(page_html.contains(&format!(
+        "Newsletter successfully sent to {} subscriber(s)",
+        1
+    )));
+
+    let response = app.post_newsletters(&newsletter_request_body).await;
+    assert_is_redirect_to(&response, "/admin/newsletter");
+
+    let page_html = app.get_newsletter_html().await;
+    assert!(page_html.contains(&format!(
+        "Newsletter successfully sent to {} subscriber(s)",
+        1
+    )));
 }
