@@ -7,6 +7,7 @@ use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
+use validator::HasLen;
 
 //region Structs & Implementations
 #[derive(serde::Deserialize)]
@@ -28,6 +29,13 @@ pub async fn change_password(
         return Ok(see_other("/login"));
     }
     let user_id = user_id.unwrap();
+
+    if form.new_password.expose_secret().length() < 12
+        || form.new_password.expose_secret().length() > 128
+    {
+        FlashMessage::error("Invalid password length").send();
+        return Ok(see_other("/admin/password"));
+    }
 
     // Check that the passwords match
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
