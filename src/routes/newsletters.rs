@@ -2,9 +2,11 @@ use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
+use crate::utils::see_other;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::ReqData;
 use actix_web::{HttpResponse, ResponseError};
+use actix_web_flash_messages::FlashMessage;
 use anyhow::Context;
 use reqwest::header::HeaderValue;
 use sqlx::PgPool;
@@ -71,7 +73,7 @@ pub async fn publish_newsletter(
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
-    for subscriber in subscribers {
+    for subscriber in &subscribers {
         match subscriber {
             Ok(sub) => {
                 email_client
@@ -87,7 +89,13 @@ pub async fn publish_newsletter(
             }
         }
     }
-    Ok(HttpResponse::Ok().finish())
+
+    FlashMessage::success(&format!(
+        "Newsletter successfully sent to {} subscriber(s)",
+        subscribers.len()
+    ))
+    .send();
+    Ok(see_other("/admin/newsletter"))
 }
 
 //endregion

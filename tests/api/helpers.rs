@@ -200,6 +200,18 @@ impl TestApp {
             .await
             .expect("Failed to execute logout request")
     }
+
+    pub async fn get_newsletter(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/password", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute password change request")
+    }
+
+    pub async fn get_newsletter_html(&self) -> String {
+        self.get_newsletter().await.text().await.unwrap()
+    }
 }
 
 // Launch our application in the background ~somehow~

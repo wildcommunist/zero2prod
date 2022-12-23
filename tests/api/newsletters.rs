@@ -1,9 +1,15 @@
 use crate::helpers::{assert_is_redirect_to, spawn_app, ConfirmationLinks, TestApp};
+use fake::faker::internet::en::SafeEmail;
+use fake::faker::name::en::Name;
+use fake::Fake;
 use wiremock::matchers::{any, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    //let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    let name: String = Name().fake();
+    let email: String = SafeEmail().fake();
+    let body = &format!("name={}&email={}", name, email);
 
     let _mock_guard = Mock::given(path("/email"))
         .and(method("POST"))
@@ -36,6 +42,14 @@ async fn create_confirmed_subscriber(app: &TestApp) {
         .unwrap()
         .error_for_status()
         .unwrap();
+}
+
+async fn create_confirmed_subscribers(app: &TestApp, num: u16) {
+    let mut iter = 0;
+    while iter < num {
+        create_confirmed_subscriber(app).await;
+        iter += 1;
+    }
 }
 
 #[tokio::test]
@@ -74,7 +88,9 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
 
     let response = app.post_newsletters(&newsletter_request_body).await;
 
-    assert_eq!(response.status().as_u16(), 200);
+    assert_is_redirect_to(&response, "/admin/newsletter");
+    let html = app.get_newsletter_html().await;
+    assert!(html.contains("Newsletter successfully sent to 0 subscriber(s)"));
 }
 
 #[tokio::test]
@@ -83,11 +99,11 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     let response = app.with_login().await;
     assert_is_redirect_to(&response, "/admin/dashboard");
 
-    create_confirmed_subscriber(&app).await;
+    create_confirmed_subscribers(&app, 5).await;
 
     Mock::given(path("/email"))
         .respond_with(ResponseTemplate::new(200))
-        .expect(1)
+        .expect(5)
         .mount(&app.email_server)
         .await;
 
@@ -98,8 +114,13 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     });
 
     let response = app.post_newsletters(&newsletter_request_body).await;
+    assert_is_redirect_to(&response, "/admin/newsletter");
 
-    assert_eq!(response.status().as_u16(), 200);
+    let page_html = app.get_newsletter_html().await;
+    assert!(page_html.contains(&format!(
+        "Newsletter successfully sent to {} subscriber(s)",
+        5
+    )));
 }
 
 #[tokio::test]
