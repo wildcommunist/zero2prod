@@ -1,10 +1,9 @@
-use crate::session_state::TypedSession;
+use crate::authentication::UserId;
 use crate::utils::e500;
 use actix_web::http::header::ContentType;
 use actix_web::web::Data;
-use actix_web::HttpResponse;
+use actix_web::{web, HttpResponse};
 use anyhow::Context;
-use reqwest::header::LOCATION;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -13,17 +12,11 @@ use uuid::Uuid;
 
 //region HTTP handlers
 pub async fn admin_dashboard(
-    session: TypedSession,
+    user_id: web::ReqData<UserId>,
     pool: Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    // When using Session::get we must specify what type we want to deserialize the session state entry into -
-    let (username, user_id) = if let Some(user_id) = session.get_user_id().map_err(e500)? {
-        (get_username(user_id, &pool).await.map_err(e500)?, user_id)
-    } else {
-        return Ok(HttpResponse::SeeOther()
-            .insert_header((LOCATION, "/login"))
-            .finish());
-    };
+    let user_id = user_id.into_inner();
+    let username = get_username(*user_id, &pool).await.map_err(e500)?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(format!(
