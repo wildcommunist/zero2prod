@@ -102,7 +102,7 @@ pub async fn run(
             ))
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))
-            .route("/logout", web::get().to(logout))
+            .route("/logout", web::post().to(logout))
             .route("/login", web::post().to(login))
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
