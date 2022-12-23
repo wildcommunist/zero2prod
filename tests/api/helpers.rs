@@ -176,6 +176,14 @@ impl TestApp {
             .await
             .expect("Failed to execute password change request.")
     }
+
+    pub async fn post_logout(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/logout", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute logout request")
+    }
 }
 
 // Launch our application in the background ~somehow~
