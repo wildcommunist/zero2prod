@@ -1,26 +1,20 @@
-use crate::authentication::{validate_credentials, AuthenticationError, Credentials};
+use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::routes::error_chain_fmt;
-use actix_web::http::header::HeaderMap;
 use actix_web::http::{header, StatusCode};
-use actix_web::{HttpRequest, HttpResponse, ResponseError};
-use anyhow::{anyhow, Context};
+use actix_web::web::ReqData;
+use actix_web::{HttpResponse, ResponseError};
+use anyhow::Context;
 use reqwest::header::HeaderValue;
-use secrecy::Secret;
 use sqlx::PgPool;
 use std::fmt::Formatter;
 
 #[derive(serde::Deserialize)]
 pub struct BodyData {
     title: String,
-    content: Content,
-}
-
-#[derive(serde::Deserialize)]
-pub struct Content {
     html: String,
-    text: String,
+    plain: String,
 }
 
 struct ConfirmedSubscriber {
@@ -64,36 +58,24 @@ impl ResponseError for PublishError {
 //region HTTP handlers
 #[tracing::instrument(
     name="Publish a newsletter issue",
-    skip(body,pool,email_client,request)
+    skip(body,pool,email_client)
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn publish_newsletter(
-    body: actix_web::web::Json<BodyData>,
+    body: actix_web::web::Form<BodyData>,
     pool: actix_web::web::Data<PgPool>,
     email_client: actix_web::web::Data<EmailClient>,
-    request: HttpRequest,
+    user_id: ReqData<UserId>,
 ) -> Result<HttpResponse, PublishError> {
-    let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
-    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-    let user_id = validate_credentials(credentials, &pool)
-        .await
-        .map_err(|e| match e {
-            AuthenticationError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
-            AuthenticationError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
-        })?;
-    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+    let user_id = user_id.into_inner();
+    tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
     for subscriber in subscribers {
         match subscriber {
             Ok(sub) => {
                 email_client
-                    .send_email(
-                        &sub.email,
-                        &body.title,
-                        &body.content.html,
-                        &body.content.text,
-                    )
+                    .send_email(&sub.email, &body.title, &body.html, &body.plain)
                     .await
                     .with_context(|| format!("Failed to send newsletter issue to {}", sub.email))?;
             }
@@ -131,33 +113,5 @@ async fn get_confirmed_subscribers(
     .collect();
 
     Ok(confirmed_subscribers)
-}
-
-fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
-    let authorization_header = headers
-        .get("Authorization")
-        .context("The 'Authorization' header is missing")?
-        .to_str()
-        .context("The 'Authorization' header was not a valid UTF8 string")?;
-    let base64_header_segment = authorization_header
-        .strip_prefix("Basic ")
-        .context("Malformed 'Authorization' header")?;
-    let decoded_bytes = base64::decode_config(base64_header_segment, base64::STANDARD)
-        .context("Failed to decode base64 values from 'Authorization' header")?;
-    let decoded_credentials = String::from_utf8(decoded_bytes)
-        .context("Failed to convert decoded bytes to credentials")?;
-    let mut credentials = decoded_credentials.splitn(2, ':');
-    let username = credentials
-        .next()
-        .ok_or_else(|| anyhow!("A username must be provided in basic auth"))?
-        .to_string();
-    let password = credentials
-        .next()
-        .ok_or_else(|| anyhow!("A password must be provided in basic auth"))?
-        .to_string();
-    Ok(Credentials {
-        username,
-        password: Secret::new(password),
-    })
 }
 //endregion

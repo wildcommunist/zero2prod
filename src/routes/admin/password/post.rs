@@ -1,6 +1,5 @@
 use crate::authentication::{validate_credentials, AuthenticationError, Credentials, UserId};
 use crate::routes::admin::dashboard::get_username;
-use crate::session_state::TypedSession;
 use crate::utils::{e500, see_other};
 use actix_web::web::Form;
 use actix_web::{web, HttpResponse};
