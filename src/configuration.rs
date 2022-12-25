@@ -4,6 +4,7 @@ use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
 use sqlx::ConnectOptions;
+use tera::Tera;
 
 pub enum Environment {
     Local,
@@ -59,6 +60,7 @@ pub struct ApplicationSettings {
     pub host: String,
     pub base_url: String,
     pub hmac_secret: Secret<String>,
+    pub template_directory: String,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -128,6 +130,13 @@ impl DatabaseSettings {
             .password(self.password.expose_secret())
             .port(self.port)
             .ssl_mode(ssl_mode)
+    }
+}
+
+impl ApplicationSettings {
+    pub fn get_template_engine(&self) -> Tera {
+        let dir = &self.template_directory;
+        Tera::new(dir).unwrap()
     }
 }
 

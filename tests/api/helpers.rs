@@ -257,7 +257,6 @@ pub async fn spawn_app() -> TestApp {
         .cookie_store(true)
         .build()
         .unwrap();
-
     let test_app = TestApp {
         address,
         db_pool: get_connection_pool(&settings.database),

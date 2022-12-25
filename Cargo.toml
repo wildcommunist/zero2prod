@@ -11,6 +11,13 @@ path = "src/lib.rs"
 path = "src/main.rs"
 name = "zero2prod"
 
+[profile.release]
+#strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
 [dependencies]
 actix-web = "4"
 serde = { version = "1.0.149", features = ["derive"] }
@@ -34,8 +41,6 @@ anyhow = "1"
 base64 = "0.13"
 sha2 = "0.10"
 argon2 = { version = "0.4", features = ["std"] }
-urlencoding = "2"
-htmlescape = "0.3"
 hmac = { version = "0.12", features = ["std"] }
 hex = "0.4"
 actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
@@ -43,6 +48,7 @@ actix-session = { version = "0.6", features = ["redis-rs-tls-session"] }
 serde_json = "1"
 actix-web-lab = "0.16"
 serde_urlencoded = "0.7.1"
+tera = { version = "1", default-features = false }
 
 [dependencies.reqwest]
 version = "0.11"

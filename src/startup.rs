@@ -18,6 +18,7 @@ use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
+use tera::Tera;
 use tracing_actix_web::TracingLogger;
 
 pub struct Application {
@@ -36,6 +37,7 @@ impl Application {
 
         let listener = TcpListener::bind(&address)?;
         let port = listener.local_addr().unwrap().port();
+        let template_engine = configuration.application.get_template_engine();
         let server = run(
             listener,
             get_connection_pool(&configuration.database),
@@ -43,6 +45,7 @@ impl Application {
             configuration.application.base_url,
             configuration.application.hmac_secret,
             configuration.redis_uri,
+            template_engine,
         )
         .await?;
         Ok(Self { port, server })
@@ -75,6 +78,7 @@ pub async fn run(
     base_url: String,
     hmac_secret: Secret<String>,
     redis_uri: Secret<String>,
+    templating: Tera,
 ) -> Result<Server, anyhow::Error> {
     let base_url = Data::new(ApplicationBaseUrl(base_url));
     let connection = web::Data::new(db_pool);
@@ -83,6 +87,7 @@ pub async fn run(
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
     let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
+    let tera = Data::new(templating);
     let server = HttpServer::new(move || {
         App::new()
             // Middleware
@@ -112,6 +117,7 @@ pub async fn run(
             .app_data(email_client.clone())
             .app_data(base_url.clone())
             .app_data(Data::new(HmacSecret(hmac_secret.clone())))
+            .app_data(tera.clone())
     })
     .listen(listener)?
     .run();

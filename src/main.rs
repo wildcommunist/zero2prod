@@ -13,16 +13,17 @@ async fn main() -> anyhow::Result<()> {
     init_subscriber(subscriber);
     let config = get_settings().expect("Failed to read configuration");
     tracing::info!(
-        "Starting application in `{}` mode",
-        Settings::current_environment().as_str()
+        "Starting application in `{}` mode. Templates: {}",
+        Settings::current_environment().as_str(),
+        config.application.template_directory
     );
     let app = Application::build(config.clone()).await?;
     let app_task = tokio::spawn(app.run_until_stopped());
-    let worker_task = tokio::spawn(run_worker_until_stopped(config));
+    //let worker_task = tokio::spawn(run_worker_until_stopped(config));
 
     tokio::select! {
-        o = app_task =>report_exit("API", o),
-        o = worker_task => report_exit("Background queue processor", o),
+        o = app_task =>report_exit("API", o)
+        //o = worker_task => report_exit("Background queue processor", o),
     }
     Ok(())
 }

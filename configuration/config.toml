@@ -3,6 +3,7 @@ redis_uri = "redis://127.0.0.1:6379"
 port = 8002
 base_url = "http://127.0.0.1"
 hmac_secret = "0nuzVbRKHKt6qpeXLYc4omfXWE8LQnqfrcC7EUXmxhop61dKVScECLHugUyeXSpuqOPbN1pJqtpFcW73"
+template_directory = "templates/**/*.html"
 [database]
 username = "postgres"
 password = "password"
