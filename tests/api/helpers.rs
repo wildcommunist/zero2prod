@@ -203,10 +203,10 @@ impl TestApp {
 
     pub async fn get_newsletter(&self) -> reqwest::Response {
         self.api_client
-            .get(&format!("{}/admin/password", &self.address))
+            .get(&format!("{}/admin/newsletter", &self.address))
             .send()
             .await
-            .expect("Failed to execute password change request")
+            .expect("Failed to execute get newsletter request")
     }
 
     pub async fn get_newsletter_html(&self) -> String {

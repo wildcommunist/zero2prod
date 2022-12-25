@@ -1,4 +1,3 @@
-use crate::authentication::UserId;
 use crate::idempotency::IdempotencyKey;
 use actix_web::body::to_bytes;
 use actix_web::http::StatusCode;
@@ -20,6 +19,7 @@ impl PgHasArrayType for HeaderPairRecord {
     }
 }
 
+#[tracing::instrument(name = "Getting saved response", skip(pool))]
 pub async fn get_saved_response(
     pool: &PgPool,
     idempotency_key: &IdempotencyKey,
@@ -55,6 +55,11 @@ pub async fn get_saved_response(
     }
 }
 
+#[tracing::instrument(
+    name = "Saving response", 
+    skip(pool, http_res)
+    fields(body=tracing::field::Empty)
+)]
 pub async fn save_response(
     pool: &PgPool,
     idempotency_key: &IdempotencyKey,
@@ -95,6 +100,11 @@ pub async fn save_response(
     )
     .execute(pool)
     .await?;
+
+    let body_str = String::from_utf8_lossy(body.as_ref());
+
+    tracing::Span::current().record("body", &format!("{}", body_str));
+
     let http_response = response_head.set_body(body).map_into_boxed_body();
     Ok(http_response)
 }

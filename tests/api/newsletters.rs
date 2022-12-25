@@ -90,6 +90,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
 
     assert_is_redirect_to(&response, "/admin/newsletter");
     let html = app.get_newsletter_html().await;
+    dbg!(&html);
     assert!(html.contains("Newsletter successfully sent to 0 subscriber(s)"));
 }
 
@@ -207,6 +208,7 @@ async fn newsletter_creation_is_idempotent() {
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
+    dbg!(&page_html);
     assert!(page_html.contains(&format!(
         "Newsletter successfully sent to {} subscriber(s)",
         1
@@ -216,6 +218,7 @@ async fn newsletter_creation_is_idempotent() {
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
+    dbg!(&page_html);
     assert!(page_html.contains(&format!(
         "Newsletter successfully sent to {} subscriber(s)",
         1
