@@ -1,8 +1,9 @@
 use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
+use crate::idempotency::{get_saved_response, save_response, IdempotencyKey};
 use crate::routes::error_chain_fmt;
-use crate::utils::{e500, see_other};
+use crate::utils::{e400, e500, see_other};
 use actix_web::http::{header, StatusCode};
 use actix_web::web::ReqData;
 use actix_web::{HttpResponse, ResponseError};
@@ -17,6 +18,7 @@ pub struct BodyData {
     title: String,
     html: String,
     plain: String,
+    idempotency_key: String,
 }
 
 struct ConfirmedSubscriber {
@@ -60,16 +62,32 @@ impl ResponseError for PublishError {
 //region HTTP handlers
 #[tracing::instrument(
 name="Publish a newsletter issue",
-skip(body,pool,email_client)
+skip(form_data,pool,email_client)
 fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn publish_newsletter(
-    body: actix_web::web::Form<BodyData>,
+    form_data: actix_web::web::Form<BodyData>,
     pool: actix_web::web::Data<PgPool>,
     email_client: actix_web::web::Data<EmailClient>,
     user_id: ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = user_id.into_inner();
+
+    let BodyData {
+        title,
+        html,
+        plain,
+        idempotency_key,
+    } = form_data.0;
+    let idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
+
+    if let Some(save_response) = get_saved_response(&pool, &idempotency_key, *user_id)
+        .await
+        .map_err(e500)?
+    {
+        return Ok(save_response);
+    }
+
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
 
@@ -77,7 +95,7 @@ pub async fn publish_newsletter(
         match subscriber {
             Ok(sub) => {
                 email_client
-                    .send_email(&sub.email, &body.title, &body.html, &body.plain)
+                    .send_email(&sub.email, &title, &html, &plain)
                     .await
                     .with_context(|| format!("Failed to send newsletter issue to {}", sub.email))
                     .map_err(e500)?;
@@ -96,7 +114,13 @@ pub async fn publish_newsletter(
         subscribers.len()
     ))
     .send();
-    Ok(see_other("/admin/newsletter"))
+
+    let response = see_other("/admin/newsletter");
+    let response = save_response(&pool, &idempotency_key, *user_id, response)
+        .await
+        .map_err(e500)?;
+
+    Ok(response)
 }
 
 //endregion

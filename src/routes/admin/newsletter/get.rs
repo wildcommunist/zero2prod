@@ -13,6 +13,7 @@ pub async fn newsletter_form(
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = user_id.into_inner();
     let username = get_username(*user_id, &pool).await.map_err(e500)?;
+    let idempotency_key = uuid::Uuid::new_v4();
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(format!(
@@ -25,6 +26,7 @@ pub async fn newsletter_form(
 <body>
 <h3>{username}, compose newsletter issue.</h3>
 <form name="sendNewsletterForm" action="/admin/newsletter" method="post">
+<input type="hidden" name="idempotency_key" value="{idempotency_key}" />
 <label>Issue title
 <input
 type="text"

@@ -58,7 +58,8 @@ async fn requests_missing_authorization_are_rejected() {
             {
                     "title":"Newsletter title",
                     "plain":"Newsletter as plan text",
-                    "html":"Newsletter as <b>html</b>"
+                    "html":"Newsletter as <b>html</b>",
+                    "idempotency_key": uuid::Uuid::new_v4().to_string()
                 }
         ))
         .await;
@@ -81,7 +82,8 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let newsletter_request_body = serde_json::json!({
         "title":"Newsletter title",
         "plain":"Newsletter as plain text",
-        "html":"Newsletter as <b>html</b>"
+        "html":"Newsletter as <b>html</b>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string()
     });
 
     let response = app.post_newsletters(&newsletter_request_body).await;
@@ -108,7 +110,8 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     let newsletter_request_body = serde_json::json!({
         "title":"Newsletter title",
         "plain":"Newsletter as plain text",
-        "html":"Newsletter as <b>html</b>"
+        "html":"Newsletter as <b>html</b>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string()
     });
 
     let response = app.post_newsletters(&newsletter_request_body).await;
@@ -156,6 +159,15 @@ async fn newsletter_returns_400_for_invalid_data() {
             }),
             "missing html content",
         ),
+        (
+            serde_json::json!(
+            {
+                "title": "Newsletter!",
+                "plain": "Newsletter body as plain text",
+                "html":"Newsletter in <b>html</b>"
+            }),
+            "missing idempotency key",
+        ),
     ];
 
     for (invalid_body, error_message) in test_cases {
@@ -187,7 +199,8 @@ async fn newsletter_creation_is_idempotent() {
     let newsletter_request_body = serde_json::json!({
         "title":"Newsletter title",
         "plain":"Newsletter as plain text",
-        "html":"Newsletter as <b>html</b>"
+        "html":"Newsletter as <b>html</b>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string()
     });
 
     let response = app.post_newsletters(&newsletter_request_body).await;
