@@ -91,7 +91,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     assert_is_redirect_to(&response, "/admin/newsletter");
     let html = app.get_newsletter_html().await;
     dbg!(&html);
-    assert!(html.contains("Newsletter successfully sent to 0 subscriber(s)"));
+    assert!(html.contains("Newsletter successfully published and sent."));
 }
 
 #[tokio::test]
@@ -119,10 +119,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
-    assert!(page_html.contains(&format!(
-        "Newsletter successfully sent to {} subscriber(s)",
-        5
-    )));
+    assert!(page_html.contains("Newsletter successfully published and sent."));
 }
 
 #[tokio::test]
@@ -209,18 +206,12 @@ async fn newsletter_creation_is_idempotent() {
 
     let page_html = app.get_newsletter_html().await;
     dbg!(&page_html);
-    assert!(page_html.contains(&format!(
-        "Newsletter successfully sent to {} subscriber(s)",
-        1
-    )));
+    assert!(page_html.contains("Newsletter successfully published and sent."));
 
     let response = app.post_newsletters(&newsletter_request_body).await;
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
     dbg!(&page_html);
-    assert!(page_html.contains(&format!(
-        "Newsletter successfully sent to {} subscriber(s)",
-        1
-    )));
+    assert!(page_html.contains("Newsletter successfully published and sent."));
 }

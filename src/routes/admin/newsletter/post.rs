@@ -85,6 +85,7 @@ pub async fn publish_newsletter(
         .await
         .map_err(e500)?
     {
+        FlashMessage::success("Newsletter successfully published and sent.").send();
         return Ok(save_response);
     }
 
@@ -109,11 +110,7 @@ pub async fn publish_newsletter(
         }
     }
 
-    FlashMessage::success(&format!(
-        "Newsletter successfully sent to {} subscriber(s)",
-        subscribers.len()
-    ))
-    .send();
+    FlashMessage::success("Newsletter successfully published and sent.").send();
 
     let response = see_other("/admin/newsletter");
     let response = save_response(&pool, &idempotency_key, *user_id, response)
