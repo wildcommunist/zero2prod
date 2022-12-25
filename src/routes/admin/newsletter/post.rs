@@ -1,7 +1,7 @@
 use crate::authentication::UserId;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
-use crate::idempotency::{get_saved_response, save_response, IdempotencyKey};
+use crate::idempotency::{save_response, try_processing, IdempotencyKey, NextAction};
 use crate::routes::error_chain_fmt;
 use crate::utils::{e400, e500, see_other};
 use actix_web::http::{header, StatusCode};
@@ -81,12 +81,15 @@ pub async fn publish_newsletter(
     } = form_data.0;
     let idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
 
-    if let Some(save_response) = get_saved_response(&pool, &idempotency_key, *user_id)
+    match try_processing(&pool, &idempotency_key, *user_id)
         .await
         .map_err(e500)?
     {
-        FlashMessage::success("Newsletter successfully published and sent.").send();
-        return Ok(save_response);
+        NextAction::StartProcessing => {}
+        NextAction::ReturnSavedResponse(saved_response) => {
+            success_message().send();
+            return Ok(saved_response);
+        }
     }
 
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
@@ -110,7 +113,7 @@ pub async fn publish_newsletter(
         }
     }
 
-    FlashMessage::success("Newsletter successfully published and sent.").send();
+    success_message().send();
 
     let response = see_other("/admin/newsletter");
     let response = save_response(&pool, &idempotency_key, *user_id, response)
@@ -123,6 +126,11 @@ pub async fn publish_newsletter(
 //endregion
 
 //region Helper functions
+
+fn success_message() -> FlashMessage {
+    FlashMessage::info("The newsletter issue has been published!")
+}
+
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
 async fn get_confirmed_subscribers(
     pool: &PgPool,
