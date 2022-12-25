@@ -4,11 +4,11 @@ use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 use anyhow::anyhow;
 use sqlx::postgres::{PgHasArrayType, PgTypeInfo};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 pub enum NextAction {
-    StartProcessing,
+    StartProcessing(Transaction<'static, Postgres>),
     ReturnSavedResponse(HttpResponse),
 }
 
@@ -63,11 +63,11 @@ pub async fn get_saved_response(
 
 #[tracing::instrument(
     name = "Saving response", 
-    skip(pool, http_res)
+    skip(transaction, http_res)
     fields(body=tracing::field::Empty)
 )]
 pub async fn save_response(
-    pool: &PgPool,
+    mut transaction: Transaction<'static, Postgres>,
     idempotency_key: &IdempotencyKey,
     user_id: Uuid,
     http_res: HttpResponse,
@@ -102,8 +102,9 @@ pub async fn save_response(
         headers,
         body.as_ref()
     )
-    .execute(pool)
+    .execute(&mut transaction)
     .await?;
+    transaction.commit().await?;
 
     let body_str = String::from_utf8_lossy(body.as_ref());
 
@@ -118,6 +119,7 @@ pub async fn try_processing(
     idempotency_key: &IdempotencyKey,
     user_id: Uuid,
 ) -> Result<NextAction, anyhow::Error> {
+    let mut transaction = pool.begin().await?;
     let num_inserted_rows = sqlx::query!(
         r#"
         INSERT INTO idempotency(
@@ -131,12 +133,12 @@ pub async fn try_processing(
         user_id,
         idempotency_key.as_ref()
     )
-    .execute(pool)
+    .execute(&mut transaction)
     .await?
     .rows_affected();
 
     if num_inserted_rows > 0 {
-        Ok(NextAction::StartProcessing)
+        Ok(NextAction::StartProcessing(transaction))
     } else {
         let saved_response = get_saved_response(pool, idempotency_key, user_id)
             .await?
