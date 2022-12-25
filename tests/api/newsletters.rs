@@ -98,7 +98,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     assert_is_redirect_to(&response, "/admin/newsletter");
     let html = app.get_newsletter_html().await;
     dbg!(&html);
-    assert!(html.contains("The newsletter issue has been published!"));
+    assert!(html.contains("The newsletter issue has been accepted - emails will go out shortly!"));
 }
 
 #[tokio::test]
@@ -126,7 +126,9 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
-    assert!(page_html.contains("The newsletter issue has been published!"));
+    assert!(
+        page_html.contains("The newsletter issue has been accepted - emails will go out shortly!")
+    );
 }
 
 #[tokio::test]
@@ -213,14 +215,18 @@ async fn newsletter_creation_is_idempotent() {
 
     let page_html = app.get_newsletter_html().await;
     dbg!(&page_html);
-    assert!(page_html.contains("The newsletter issue has been published!"));
+    assert!(
+        page_html.contains("The newsletter issue has been accepted - emails will go out shortly!")
+    );
 
     let response = app.post_newsletters(&newsletter_request_body).await;
     assert_is_redirect_to(&response, "/admin/newsletter");
 
     let page_html = app.get_newsletter_html().await;
     dbg!(&page_html);
-    assert!(page_html.contains("The newsletter issue has been published!"));
+    assert!(
+        page_html.contains("The newsletter issue has been accepted - emails will go out shortly!")
+    );
 }
 
 #[tokio::test]
