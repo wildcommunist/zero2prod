@@ -5,6 +5,8 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::configuration::{get_settings, DatabaseSettings};
+use zero2prod::email_client::EmailClient;
+use zero2prod::issue_delivery_worker::{try_execute_task, ExecutionOutcome};
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
@@ -73,6 +75,7 @@ pub struct TestApp {
     pub port: u16,
     pub test_user: TestUser,
     pub api_client: reqwest::Client,
+    pub email_client: EmailClient,
 }
 
 impl TestApp {
@@ -212,6 +215,18 @@ impl TestApp {
     pub async fn get_newsletter_html(&self) -> String {
         self.get_newsletter().await.text().await.unwrap()
     }
+
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
+        }
+    }
 }
 
 // Launch our application in the background ~somehow~
@@ -250,6 +265,7 @@ pub async fn spawn_app() -> TestApp {
         port: application_port,
         test_user: TestUser::generate(),
         api_client: client,
+        email_client: settings.email_client.client(),
     };
 
     test_app.test_user.store(&test_app.db_pool).await;

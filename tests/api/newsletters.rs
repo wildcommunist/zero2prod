@@ -99,6 +99,8 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let html = app.get_newsletter_html().await;
     dbg!(&html);
     assert!(html.contains("The newsletter issue has been accepted - emails will go out shortly!"));
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -129,6 +131,8 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     assert!(
         page_html.contains("The newsletter issue has been accepted - emails will go out shortly!")
     );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -227,6 +231,8 @@ async fn newsletter_creation_is_idempotent() {
     assert!(
         page_html.contains("The newsletter issue has been accepted - emails will go out shortly!")
     );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -236,8 +242,7 @@ async fn concurrent_form_submission_handled_gracefully() {
     let response = app.with_login().await;
     assert_is_redirect_to(&response, "/admin/dashboard");
 
-    Mock::given(path("/email"))
-        .and(method("POST"))
+    when_sending_email()
         .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
         .expect(1)
         .mount(&app.email_server)
@@ -259,52 +264,10 @@ async fn concurrent_form_submission_handled_gracefully() {
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
     );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 fn when_sending_email() -> MockBuilder {
     Mock::given(path("/email")).and(method("POST"))
-}
-
-#[tokio::test]
-async fn transient_errors_do_not_cause_duplicate_deliveries_on_retried() {
-    let app = spawn_app().await;
-    let newsletter_request_body = serde_json::json!({
-        "title":"Newsletter title",
-        "plain":"Newsletter as plain text",
-        "html":"Newsletter as <b>html</b>",
-        "idempotency_key": uuid::Uuid::new_v4().to_string()
-    });
-    create_confirmed_subscriber(&app).await;
-    create_confirmed_subscriber(&app).await;
-    app.with_login().await;
-
-    // Delivery for first confirmed subscriber "successful"
-    when_sending_email()
-        .respond_with(ResponseTemplate::new(200))
-        .up_to_n_times(1)
-        .expect(1)
-        .mount(&app.email_server)
-        .await;
-
-    // Fail on the second user
-    when_sending_email()
-        .respond_with(ResponseTemplate::new(500))
-        .up_to_n_times(1)
-        .expect(1)
-        .mount(&app.email_server)
-        .await;
-
-    let response = app.post_newsletters(&newsletter_request_body).await; // As there are two confirmed subscribers, we have two mocks to consume them, with the very last one returning 500
-    assert_eq!(response.status().as_u16(), 500);
-
-    when_sending_email()
-        .respond_with(ResponseTemplate::new(200))
-        .up_to_n_times(1)
-        .expect(1)
-        .named("Delivery retry")
-        .mount(&app.email_server)
-        .await;
-
-    let response = app.post_newsletters(&newsletter_request_body).await;
-    assert_eq!(response.status().as_u16(), 303);
 }
