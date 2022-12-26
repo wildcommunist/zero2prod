@@ -97,6 +97,7 @@ pub async fn run(
                 redis_store.clone(),
                 secret_key.clone(),
             ))
+            .service(actix_files::Files::new("/static", "templates/css").show_files_listing())
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))
             .route("/logout", web::post().to(logout))
