@@ -99,7 +99,7 @@ pub fn get_settings() -> Result<Settings, config::ConfigError> {
             configuration_directory.join("config.toml"),
         ))
         .add_source(config::File::from(
-            configuration_directory.join(&environment_filename),
+            configuration_directory.join(environment_filename),
         ))
         .add_source(
             config::Environment::with_prefix("APP")
